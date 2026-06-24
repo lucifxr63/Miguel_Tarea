@@ -491,7 +491,12 @@ const dashboardData = {
     tarifaBase: 142,                // CLP/kWh de referencia (F14 del Excel)
     // Datos base por escenario (réplica del modelo RETScreen / hoja "Evaluación financiera")
     full:  { capex: 48051570, ahorroKwh: 100000 }, // con sistema auxiliar (C9 / E9)
-    noAux: { capex: 29578787, ahorroKwh:  92008 }, // sin sistema auxiliar (C9-C22 / E9-E7)
+    // Sin sistema auxiliar (réplica de la hoja "sin auxiliar", tarifa 140 / tasa 2%):
+    //   inversión = inyección + iluminación + gestión = 29.566.799
+    //   amortización sobre el capex completo (48.039.582 = inversión + auxiliar 18.472.783)
+    //   ingresos año 1 = 13.981.120  ⇒  ahorro = 13.981.120 / 140 kWh
+    //   ⇒ VAN = 239.438.921 y TIR = 29,87% a tarifa 140 / tasa 2%
+    noAux: { capex: 29566799, ahorroKwh: 13981120 / 140, amortCapex: 48039582 },
   }
 };
 
@@ -754,12 +759,14 @@ function computeIRR(flows) {
 // Réplica fiel del modelo del Excel (hoja "Evaluación financiera", filas 41-60).
 // La misma tasa escala ingresos/costos y descuenta (celda F37), y el VAN/TIR se calculan
 // sobre la fila ACUMULADO (C60:M60): VAN = NPV(tasa, acumulado), TIR = IRR(acumulado).
-function excelFlows(capex, ahorroKwh, tarifa, rate) {
+function excelFlows(capex, ahorroKwh, tarifa, rate, amortCapex) {
   const fin = dashboardData.finanzas;
   const N = fin.vidaUtil;
   const opex = capex * fin.opexPct;          // D9 = C9 * 5%
   const ingreso = ahorroKwh * tarifa;         // F9 = E9 * tarifa (año 1)
-  const amort = capex / N;                     // amortización lineal (C56/F38)
+  // La amortización puede basarse en un capex distinto al de la inversión:
+  // en el escenario sin auxiliar la hoja amortiza el capex completo (C56/F38).
+  const amort = (amortCapex ?? capex) / N;     // amortización lineal (C56/F38)
   const anual = [-capex];                      // utilidad por año (año 0 = -inversión)
   let acum = -capex;
   const acumulado = [acum];                    // serie acumulada (= C60:M60 del Excel)
@@ -790,7 +797,7 @@ function buildScenario(excludeAux) {
   const fin = dashboardData.finanzas;
   const sc = excludeAux ? fin.noAux : fin.full;
   const { tarifa, disc } = getFinInputs();
-  const { anual, acumulado, opex } = excelFlows(sc.capex, sc.ahorroKwh, tarifa, disc);
+  const { anual, acumulado, opex } = excelFlows(sc.capex, sc.ahorroKwh, tarifa, disc, sc.amortCapex);
   // El VAN y la TIR se evalúan sobre la serie acumulada (réplica de NPV/IRR del Excel)
   const van = computeNPV(disc, acumulado);
   const tir = computeIRR(acumulado);
