@@ -418,13 +418,13 @@
       </div>
       <div class="fin-input">
         <label for="discInput">Tasa de descuento [%]</label>
-        <input type="number" id="discInput" value="3.5" min="0" step="0.1">
+        <input type="number" id="discInput" value="2.78" min="0" step="0.1">
       </div>
       <div class="fin-input">
         <label>Ahorro anual estimado</label>
         <div class="fin-savings" id="ahorroAnual">$0</div>
       </div>
-      <button class="btn" id="resetFin" style="margin-left:auto">↺ Restaurar (142 · 3,5%)</button>
+      <button class="btn" id="resetFin" style="margin-left:auto">↺ Restaurar (142 · 2,78%)</button>
     </div>
 
     <div class="kpi-grid" id="finKpis"></div>
@@ -484,12 +484,14 @@ const dashboardData = {
 
   // Parámetros financieros (CLP) — valores corroborados del modelo (RETScreen)
   finanzas: {
-    growth: 0.0278,                 // escalamiento anual de ingresos/costos
-    discountBase: 0.035,            // tasa de descuento de referencia (VAN corroborado)
-    tarifaBase: 142,                // CLP/kWh de referencia (ahorros corroborados)
-    // Resultados corroborados por escenario (a tarifa 142 y descuento 3,5%)
-    full:  { capex: 48039582, opex: 2401979, van: 30126885,  tir: 0.0650, payback: 5, ahorroKwh: 100000 }, // con sistema auxiliar
-    noAux: { capex: 29566799, opex: 1478340, van: 194611054, tir: 0.2801, payback: 3, ahorroKwh:  85000 }, // sin sistema auxiliar
+    vidaUtil: 10,                   // horizonte del flujo de caja (F38 del Excel)
+    impuesto: 0.25,                 // tasa de impuesto a la utilidad (Excel: 25%)
+    opexPct: 0.05,                  // OPEX como % del CAPEX (Excel: D = C*5%)
+    discountBase: 0.0278,           // tasa de referencia (F37 del Excel: escala ingresos/costos y descuenta)
+    tarifaBase: 142,                // CLP/kWh de referencia (F14 del Excel)
+    // Datos base por escenario (réplica del modelo RETScreen / hoja "Evaluación financiera")
+    full:  { capex: 48051570, ahorroKwh: 100000 }, // con sistema auxiliar (C9 / E9)
+    noAux: { capex: 29578787, ahorroKwh:  92008 }, // sin sistema auxiliar (C9-C22 / E9-E7)
   }
 };
 
@@ -749,22 +751,29 @@ function computeIRR(flows) {
   return (lo + hi) / 2;
 }
 
-// Sintetiza flujos de caja (CAPEX + anualidad creciente) que reproducen el VAN y la TIR corroborados.
-// La TIR fija la magnitud del flujo base; se busca el horizonte (vida útil) que mejor reproduce el VAN.
-function synthFlows(capex, tir, vanTarget) {
-  const g = dashboardData.finanzas.growth, disc = dashboardData.finanzas.discountBase;
-  let best = null;
-  for (let N = 8; N <= 40; N++) {
-    let S1 = 0;
-    for (let t = 1; t <= N; t++) S1 += Math.pow(1 + g, t - 1) / Math.pow(1 + tir, t);
-    const A = capex / S1;
-    const flows = [-capex];
-    for (let t = 1; t <= N; t++) flows.push(A * Math.pow(1 + g, t - 1));
-    const van = computeNPV(disc, flows);
-    const err = Math.abs(van - vanTarget);
-    if (!best || err < best.err) best = { err, N, flows };
+// Réplica fiel del modelo del Excel (hoja "Evaluación financiera", filas 41-60).
+// La misma tasa escala ingresos/costos y descuenta (celda F37), y el VAN/TIR se calculan
+// sobre la fila ACUMULADO (C60:M60): VAN = NPV(tasa, acumulado), TIR = IRR(acumulado).
+function excelFlows(capex, ahorroKwh, tarifa, rate) {
+  const fin = dashboardData.finanzas;
+  const N = fin.vidaUtil;
+  const opex = capex * fin.opexPct;          // D9 = C9 * 5%
+  const ingreso = ahorroKwh * tarifa;         // F9 = E9 * tarifa (año 1)
+  const amort = capex / N;                     // amortización lineal (C56/F38)
+  const anual = [-capex];                      // utilidad por año (año 0 = -inversión)
+  let acum = -capex;
+  const acumulado = [acum];                    // serie acumulada (= C60:M60 del Excel)
+  for (let t = 1; t <= N; t++) {
+    const ing  = ingreso * Math.pow(1 + rate, t - 1);
+    const cost = opex    * Math.pow(1 + rate, t - 1);
+    const ebit = (ing - cost) - amort;         // EBITDA - amortización
+    const eat  = ebit * (1 - fin.impuesto);    // utilidad después de impuesto (25%)
+    const util = eat + amort;                   // (+) amortización
+    anual.push(util);
+    acum += util;
+    acumulado.push(acum);
   }
-  return best.flows;
+  return { anual, acumulado, opex };
 }
 
 // Lee los controles dinámicos (tarifa y tasa de descuento)
@@ -781,20 +790,14 @@ function buildScenario(excludeAux) {
   const fin = dashboardData.finanzas;
   const sc = excludeAux ? fin.noAux : fin.full;
   const { tarifa, disc } = getFinInputs();
-  const k = tarifa / fin.tarifaBase;          // factor por cambio de tarifa
-  const base = synthFlows(sc.capex, sc.tir, sc.van);
-  // Escala los flujos positivos (ingresos por ahorro) según la tarifa; el CAPEX (año 0) no cambia
-  const flows = base.map((f, t) => t === 0 ? f : f * k);
-  let acc = 0; const cumulative = [];
-  flows.forEach(f => { acc += f; cumulative.push(acc); });
-  const atBase = Math.abs(k - 1) < 1e-9;
-  const atBaseDisc = Math.abs(disc - fin.discountBase) < 1e-9;
-  const van = (atBase && atBaseDisc) ? sc.van : computeNPV(disc, flows);
-  const tir = atBase ? sc.tir : computeIRR(flows);
-  let payback = sc.payback;
-  if (!atBase) { const idx = cumulative.findIndex((v, t) => t > 0 && v >= 0); payback = idx >= 0 ? idx : null; }
+  const { anual, acumulado, opex } = excelFlows(sc.capex, sc.ahorroKwh, tarifa, disc);
+  // El VAN y la TIR se evalúan sobre la serie acumulada (réplica de NPV/IRR del Excel)
+  const van = computeNPV(disc, acumulado);
+  const tir = computeIRR(acumulado);
+  const idx = acumulado.findIndex((v, t) => t > 0 && v >= 0);
+  const payback = idx >= 0 ? idx : null;
   const ahorro = sc.ahorroKwh * tarifa;
-  return { capex: sc.capex, opex: sc.opex, van, tir, payback, ahorro, tarifa, disc, flows, cumulative, excludeAux };
+  return { capex: sc.capex, opex, van, tir, payback, ahorro, tarifa, disc, flows: anual, cumulative: acumulado, excludeAux };
 }
 
 function renderFinancial(excludeAux) {
@@ -1001,7 +1004,7 @@ function updateSensitivityChart(s, excludeAux) {
   const c = themeColors();
   const rates = [];
   for (let r = 0; r <= 0.35001; r += 0.025) rates.push(r);
-  const vanCurve = rates.map(r => computeNPV(r, s.flows));
+  const vanCurve = rates.map(r => computeNPV(r, s.cumulative));
   chartSensibilidad.data.labels = rates.map(r => (r * 100).toFixed(1) + '%');
   chartSensibilidad.data.datasets = [
     {
