@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard de Eficiencia Energética · Plásticos Andino S.A.</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b1120;
+    --bg-2: #0f172a;
+    --card: #131c31;
+    --card-2: #18233d;
+    --border: #233049;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --text-faint: #64748b;
+    --green: #34d399;
+    --green-bg: rgba(52, 211, 153, 0.12);
+    --blue: #60a5fa;
+    --blue-bg: rgba(96, 165, 250, 0.12);
+    --amber: #fbbf24;
+    --amber-bg: rgba(251, 191, 36, 0.12);
+    --red: #f87171;
+    --red-bg: rgba(248, 113, 113, 0.13);
+    --gray-bg: rgba(100, 116, 139, 0.10);
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --radius: 14px;
+  }
+
+  body.light {
+    --bg: #eef2f7;
+    --bg-2: #e2e8f0;
+    --card: #ffffff;
+    --card-2: #f8fafc;
+    --border: #d8e0ec;
+    --text: #1e293b;
+    --text-dim: #475569;
+    --text-faint: #94a3b8;
+    --green-bg: rgba(16, 185, 129, 0.14);
+    --green: #059669;
+    --blue: #2563eb;
+    --blue-bg: rgba(37, 99, 235, 0.10);
+    --amber: #d97706;
+    --amber-bg: rgba(217, 119, 6, 0.12);
+    --red: #dc2626;
+    --red-bg: rgba(220, 38, 38, 0.10);
+    --gray-bg: rgba(100, 116, 139, 0.10);
+    --shadow: 0 8px 24px rgba(100, 116, 139, 0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+    background: linear-gradient(160deg, var(--bg), var(--bg-2));
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 28px 22px 80px; }
+
+  header.topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 18px; flex-wrap: wrap; margin-bottom: 26px;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--green), var(--blue));
+    display: grid; place-items: center; font-weight: 800; font-size: 20px; color: #06121f;
+  }
+  .brand h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+  .brand p { font-size: 0.82rem; color: var(--text-dim); }
+
+  .theme-toggle {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 16px; border-radius: 10px; cursor: pointer; font-size: 0.85rem;
+    font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--green); }
+
+  nav.tabs {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 26px;
+    background: var(--card); padding: 6px; border-radius: 12px; border: 1px solid var(--border);
+  }
+  nav.tabs button {
+    flex: 1 1 auto; min-width: 130px; background: transparent; border: none; color: var(--text-dim);
+    padding: 11px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    transition: 0.2s; white-space: nowrap;
+  }
+  nav.tabs button:hover { color: var(--text); }
+  nav.tabs button.active { background: var(--card-2); color: var(--green); box-shadow: var(--shadow); }
+
+  section.panel { display: none; animation: fade 0.35s ease; }
+  section.panel.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  h2.section-title {
+    font-size: 1.05rem; font-weight: 700; margin: 4px 0 18px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2.section-title::before {
+    content: ''; width: 4px; height: 20px; border-radius: 3px;
+    background: linear-gradient(var(--green), var(--blue));
+  }
+  h3.block-title { font-size: 0.95rem; font-weight: 700; margin: 26px 0 12px; color: var(--text); }
+  .muted { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 14px; }
+
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px; margin-bottom: 8px;
+  }
+  .kpi {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .kpi::after {
+    content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+    background: var(--accent, var(--green));
+  }
+  .kpi .label { font-size: 0.78rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .kpi .value { font-size: 1.6rem; font-weight: 800; margin-top: 6px; letter-spacing: -0.02em; }
+  .kpi .unit { font-size: 0.8rem; color: var(--text-faint); font-weight: 600; margin-top: 2px; }
+  .kpi.green { --accent: var(--green); } .kpi.green .value { color: var(--green); }
+  .kpi.blue  { --accent: var(--blue);  } .kpi.blue .value  { color: var(--blue); }
+  .kpi.amber { --accent: var(--amber); } .kpi.amber .value { color: var(--amber); }
+  .kpi.red   { --accent: var(--red);   } .kpi.red .value   { color: var(--red); }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; box-shadow: var(--shadow); margin-top: 18px;
+  }
+  .chart-box { position: relative; height: 340px; }
+  .chart-box.short { height: 280px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+  thead th {
+    text-align: right; padding: 11px 12px; color: var(--text-dim); font-weight: 700;
+    border-bottom: 2px solid var(--border); white-space: nowrap; font-size: 0.78rem;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  thead th:first-child, tbody td:first-child { text-align: left; }
+  tbody td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td.month { font-weight: 700; }
+  tr.row-ok { background: var(--green-bg); }
+  tr.row-gap { background: var(--red-bg); }
+  tr.row-corrected { background: var(--green-bg); }
+  tr.row-none { background: var(--gray-bg); color: var(--text-faint); }
+  tr.row-none td { color: var(--text-faint); }
+  tfoot td { padding: 12px; font-weight: 800; border-top: 2px solid var(--border); text-align: right; }
+  tfoot td:first-child { text-align: left; }
+  .table-scroll { overflow-x: auto; }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+  .badge.ok { background: var(--green-bg); color: var(--green); }
+  .badge.gap { background: var(--red-bg); color: var(--red); }
+  .badge.none { background: var(--gray-bg); color: var(--text-faint); }
+
+  .measures { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .measure {
+    background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px;
+    border-left: 4px solid var(--accent, var(--green));
+  }
+  .measure .m-area { font-size: 0.74rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+  .measure .m-name { font-size: 0.98rem; font-weight: 700; margin: 4px 0 8px; }
+  .measure .m-desc { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 12px; }
+  .measure .m-impact { display: flex; justify-content: space-between; font-size: 0.85rem; }
+  .measure .m-impact b { color: var(--accent, var(--green)); font-weight: 800; }
+
+  .controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+  select, .btn {
+    background: var(--card-2); border: 1px solid var(--border); color: var(--text);
+    padding: 11px 16px; border-radius: 10px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: 0.2s;
+  }
+  select:focus { outline: none; border-color: var(--green); }
+  .btn:hover { border-color: var(--green); }
+  .btn.active { background: var(--amber-bg); border-color: var(--amber); color: var(--amber); }
+
+  .mini-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 18px; }
+  .mini {
+    background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; text-align: center;
+  }
+  .mini .label { font-size: 0.78rem; color: var(--text-dim); font-weight: 600; }
+  .mini .value { font-size: 1.5rem; font-weight: 800; margin-top: 6px; color: var(--blue); }
+
+  .switch-row {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--card-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 8px;
+  }
+  .switch { position: relative; width: 52px; height: 28px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0; background: var(--border); border-radius: 28px; cursor: pointer; transition: 0.3s;
+  }
+  .slider::before {
+    content: ''; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px;
+    background: #fff; border-radius: 50%; transition: 0.3s;
+  }
+  .switch input:checked + .slider { background: var(--amber); }
+  .switch input:checked + .slider::before { transform: translateX(24px); }
+  .switch-row .s-text b { font-weight: 700; }
+  .switch-row .s-text span { display: block; font-size: 0.8rem; color: var(--text-dim); }
+  .scenario-tag { margin-left: auto; font-size: 0.8rem; font-weight: 700; padding: 6px 14px; border-radius: 20px; background: var(--green-bg); color: var(--green); }
+  .scenario-tag.alt { background: var(--amber-bg); color: var(--amber); }
+
+  footer { text-align: center; color: var(--text-faint); font-size: 0.8rem; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">PA</div>
+      <div>
+        <h1>Dashboard de Eficiencia Energética</h1>
+        <p>Plásticos Andino S.A. · Auditoría y Proyecto de Mejora</p>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle">🌙 <span>Modo Oscuro</span></button>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="active" data-tab="general">Vista General</button>
+    <button data-tab="conclusiones">Conclusiones y Correcciones</button>
+    <button data-tab="brechas">Brechas y Medidas</button>
+    <button data-tab="dinamica">Tabla Dinámica</button>
+    <button data-tab="financiera">Evaluación Financiera</button>
+  </nav>
+
+  <!-- ================= VISTA GENERAL ================= -->
+  <section class="panel active" id="general">
+    <h2 class="section-title">Vista General del Proyecto</h2>
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="grid-2">
+      <div class="card">
+        <h3 class="block-title">Producción vs. Consumo Eléctrico (mensual)</h3>
+        <div class="chart-box"><canvas id="chartProdCons"></canvas></div>
+      </div>
+      <div class="card">
+        <h3 class="block-title">Consumo Caso Base vs. Propuesto</h3>
+        <div class="chart-box"><canvas id="chartBaseProp"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONCLUSIONES Y CORRECCIONES ============ -->
+  <section class="panel" id="conclusiones">
+    <h2 class="section-title">Tablas de Conclusiones y Correcciones</h2>
+
+    <div class="card">
+      <h3 class="block-title">Conclusiones — Consumo Energético por Mes</h3>
+      <p class="muted">Meses en <b style="color:var(--red)">rojo</b> presentan desfases considerables; en <b style="color:var(--green)">verde</b> los que están dentro de la meta.</p>
+      <div class="table-scroll">
+        <table id="tblConclusiones">
+          <thead><tr>
+            <th>Mes</th><th>Producción (ton)</th><th>Consumo (kWh)</th>
+            <th>Costo (CLP)</th><th>Tarifa (CLP/kWh)</th><th>Relación (kWh/ton)</th><th>Estado</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="block-title">Correcciones — Reducción de Consumo Aplicada</h3>
+      <p class="muted">Meses corregidos en <b style="color:var(--green)">verde</b>; en <b style="color:var(--text-faint)">gris</b> los que no requirieron intervención.</p>
+      <div class="table-scroll">
+        <table id="tblCorrecciones">
+          <thead><tr>
+            <th>Mes</th><th>Consumo Base (kWh)</th><th>Reducción (kWh)</th>
+            <th>Consumo Corregido (kWh)</th><th>% Reducción</th><th>Estado</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BRECHAS Y MEDIDAS ============ -->
+  <section class="panel" id="brechas">
+    <h2 class="section-title">Sistemas, Brechas y Medidas Ejecutadas</h2>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3 class="block-title">Caso Base vs. Post Mejora (por mes)</h3>
+        <div class="table-scroll">
+          <table id="tblBaseMejora">
+            <thead><tr>
+              <th>Mes</th><th>Producción (ton)</th><th>Consumo Real (kWh)</th><th>Intensidad (kWh/ton)</th>
+            </tr></thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="block-title">Sistemas / Brechas anuales</h3>
+        <div class="table-scroll">
+          <table id="tblSistemas">
+            <thead><tr>
+              <th>Área / Sistema</th><th>Caso Base (kWh)</th><th>Propuesto (kWh)</th>
+              <th>Brecha (kWh/año)</th><th>Costo Brecha (CLP)</th>
+            </tr></thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="block-title">Medidas Ejecutadas</h3>
+      <div class="measures" id="measures"></div>
+    </div>
+  </section>
+
+  <!-- ============ TABLA DINÁMICA ============ -->
+  <section class="panel" id="dinamica">
+    <h2 class="section-title">Tabla Dinámica Interactiva</h2>
+    <div class="card">
+      <div class="controls">
+        <label for="monthSelect" style="font-weight:600;color:var(--text-dim)">Seleccionar mes:</label>
+        <select id="monthSelect"></select>
+      </div>
+      <div class="mini-grid" id="miniGrid"></div>
+      <div class="chart-box short" style="margin-top:22px"><canvas id="chartMonth"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ============ EVALUACIÓN FINANCIERA ============ -->
+  <section class="panel" id="financiera">
+    <h2 class="section-title">Evaluación Financiera Dinámica</h2>
+
+    <div class="switch-row">
+      <label class="switch">
+        <input type="checkbox" id="auxSwitch" />
+        <span class="slider"></span>
+      </label>
+      <div class="s-text">
+        <b>Simular sin Sistema Auxiliar</b>
+        <span>Excluye CAPEX y ahorros de ventilación y aire comprimido, recalculando VAN, TIR y flujo de caja.</span>
+      </div>
+      <span class="scenario-tag" id="scenarioTag">Escenario Completo</span>
+    </div>
+
+    <div class="kpi-grid" id="finKpis"></div>
+
+    <div class="card">
+      <h3 class="block-title">Flujo de Caja Neto a 10 años</h3>
+      <div class="chart-box"><canvas id="chartCash"></canvas></div>
+    </div>
+  </section>
+
+  <footer>Dashboard generado en HTML + CSS + Vanilla JS · Chart.js v4.4.0 · Datos referenciales de auditoría energética</footer>
+</div>
+
+<script>
+/* =================================================================
+   1. ESTRUCTURA DE DATOS
+================================================================= */
+const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const gapMonths = ['Julio','Agosto','Octubre','Noviembre','Diciembre']; // meses desfasados
+
+const dashboardData = {
+  meta: {
+    produccionAnual: 14310,          // ton
+    consumoBase: 5048700,            // kWh
+    consumoPropuesto: 4948700,       // kWh
+    brechaTotal: 100000,             // kWh
+  },
+  // Series mensuales
+  produccion: [1180, 1100, 1250, 1200, 1230, 1150, 1280, 1300, 1190, 1240, 1210, 980], // ton (Σ = 14.310)
+  consumoBaseMes: [410000, 385000, 430000, 415000, 425000, 400000, 445000, 455000, 412000, 438000, 428000, 405700], // Σ = 5.048.700
+  reduccionMes:   [0, 0, 0, 0, 0, 0, 20000, 20000, 0, 20000, 20000, 20000], // Σ = 100.000
+  tarifa:         [132, 135, 128, 140, 145, 150, 155, 158, 148, 142, 138, 130], // CLP/kWh
+
+  // Sistemas / brechas (Σ brecha = 100.000 kWh)
+  sistemas: [
+    { area: 'Inyección',    base: 2800000, propuesto: 2755000 },
+    { area: 'Iluminación',  base:  650000, propuesto:  630000 },
+    { area: 'Auxiliar',     base: 1100000, propuesto: 1075000 },
+    { area: 'Gestión',      base:  498700, propuesto:  488700 },
+  ],
+
+  // Medidas ejecutadas
+  medidas: [
+    { area: 'Inyección',   nombre: 'Variadores de Frecuencia (VDF)', desc: 'Automatización del control de motores en líneas de inyección para ajustar carga a demanda real.', kwh: 45000, costo: 28000000, color: 'var(--blue)' },
+    { area: 'Iluminación', nombre: 'Sensores de presencia + LED',    desc: 'Recambio a luminarias LED y sensores de presencia en bodegas y zonas de tránsito.',          kwh: 20000, costo: 12000000, color: 'var(--amber)' },
+    { area: 'Auxiliar',    nombre: 'Optimización aire comprimido',   desc: 'Detección de fugas, regulación de presión y secuenciador en compresores y ventilación.',       kwh: 25000, costo: 22000000, color: 'var(--green)' },
+    { area: 'Gestión',     nombre: 'Tableros SCADA / monitoreo',     desc: 'Sistema SCADA para monitoreo en tiempo real y gestión activa de cargas eléctricas.',          kwh: 10000, costo: 8000000,  color: 'var(--red)' },
+  ],
+
+  // Datos financieros (CLP)
+  finanzas: {
+    capexTotal: 70000000,
+    capexAuxiliar: 22000000,        // ventilación + aire comprimido
+    ahorroAnualTotal: 17500000,     // ahorro energético anual
+    ahorroAnualAuxiliar: 4400000,   // porción del sistema auxiliar
+    tasaDescuento: 0.10,            // 10%
+    horizonte: 10,                  // años
+  }
+};
+
+/* ---------- helpers de formato ---------- */
+const fNum = n => Math.round(n).toLocaleString('es-CL');
+const fDec = (n, d = 1) => n.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fCLP = n => '$' + Math.round(n).toLocaleString('es-CL');
+
+/* ---------- series derivadas ---------- */
+const costoBaseMes = dashboardData.consumoBaseMes.map((c, i) => c * dashboardData.tarifa[i]);
+const intensidadMes = dashboardData.consumoBaseMes.map((c, i) => c / dashboardData.produccion[i]);
+const consumoCorregidoMes = dashboardData.consumoBaseMes.map((c, i) => c - dashboardData.reduccionMes[i]);
+
+const totalProd = dashboardData.produccion.reduce((a, b) => a + b, 0);
+const totalConsumo = dashboardData.consumoBaseMes.reduce((a, b) => a + b, 0);
+const totalCosto = costoBaseMes.reduce((a, b) => a + b, 0);
+const intensidadGlobal = totalConsumo / totalProd;
+const tarifaPromedio = dashboardData.tarifa.reduce((a, b) => a + b, 0) / 12;
+
+/* =================================================================
+   THEME + TABS
+================================================================= */
+const themeToggle = document.getElementById('themeToggle');
+themeToggle.addEventListener('click', () => {
+  document.body.classList.toggle('light');
+  const light = document.body.classList.contains('light');
+  themeToggle.innerHTML = light ? '☀️ <span>Modo Claro</span>' : '🌙 <span>Modo Oscuro</span>';
+  refreshChartsTheme();
+});
+
+document.getElementById('tabs').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('active');
+});
+
+/* =================================================================
+   2. VISTA GENERAL — KPIs + gráficos
+================================================================= */
+const kpis = [
+  { cls: 'blue',  label: 'Consumo Real (Base)',  value: fNum(dashboardData.meta.consumoBase),    unit: 'kWh / año' },
+  { cls: 'green', label: 'Objetivo Proyectado',  value: fNum(dashboardData.meta.consumoPropuesto), unit: 'kWh / año' },
+  { cls: 'red',   label: 'Brecha Total',         value: fNum(dashboardData.meta.brechaTotal),     unit: 'kWh / año' },
+  { cls: 'blue',  label: 'Producción Total',     value: fNum(totalProd),                          unit: 'toneladas' },
+  { cls: 'amber', label: 'Intensidad Real',      value: fDec(intensidadGlobal, 1),                unit: 'kWh / ton' },
+  { cls: 'green', label: 'Costo Energía Real',   value: fCLP(totalCosto),                         unit: 'CLP / año' },
+];
+document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
+  <div class="kpi ${k.cls}">
+    <div class="label">${k.label}</div>
+    <div class="value">${k.value}</div>
+    <div class="unit">${k.unit}</div>
+  </div>`).join('');
+
+/* =================================================================
+   3. TABLAS CONCLUSIONES Y CORRECCIONES
+================================================================= */
+const tbConcl = document.querySelector('#tblConclusiones tbody');
+tbConcl.innerHTML = months.map((m, i) => {
+  const gap = gapMonths.includes(m);
+  return `<tr class="${gap ? 'row-gap' : 'row-ok'}">
+    <td class="month">${m}</td>
+    <td>${fNum(dashboardData.produccion[i])}</td>
+    <td>${fNum(dashboardData.consumoBaseMes[i])}</td>
+    <td>${fCLP(costoBaseMes[i])}</td>
+    <td>${fNum(dashboardData.tarifa[i])}</td>
+    <td>${fDec(intensidadMes[i], 1)}</td>
+    <td><span class="badge ${gap ? 'gap' : 'ok'}">${gap ? 'Desfase' : 'En meta'}</span></td>
+  </tr>`;
+}).join('');
+
+const tbCorr = document.querySelector('#tblCorrecciones tbody');
+tbCorr.innerHTML = months.map((m, i) => {
+  const red = dashboardData.reduccionMes[i];
+  const has = red > 0;
+  const pct = (red / dashboardData.consumoBaseMes[i]) * 100;
+  return `<tr class="${has ? 'row-corrected' : 'row-none'}">
+    <td class="month">${m}</td>
+    <td>${fNum(dashboardData.consumoBaseMes[i])}</td>
+    <td>${has ? fNum(red) : '—'}</td>
+    <td>${fNum(consumoCorregidoMes[i])}</td>
+    <td>${has ? fDec(pct, 2) + '%' : '—'}</td>
+    <td><span class="badge ${has ? 'ok' : 'none'}">${has ? 'Corregido' : 'Sin cambio'}</span></td>
+  </tr>`;
+}).join('');
+
+/* =================================================================
+   4. BRECHAS Y MEDIDAS
+================================================================= */
+const tbBM = document.querySelector('#tblBaseMejora tbody');
+tbBM.innerHTML = months.map((m, i) => `
+  <tr>
+    <td class="month">${m}</td>
+    <td>${fNum(dashboardData.produccion[i])}</td>
+    <td>${fNum(dashboardData.consumoBaseMes[i])}</td>
+    <td>${fDec(intensidadMes[i], 1)}</td>
+  </tr>`).join('');
+document.querySelector('#tblBaseMejora tfoot').innerHTML = `
+  <tr><td>Total / Promedio</td><td>${fNum(totalProd)}</td><td>${fNum(totalConsumo)}</td><td>${fDec(intensidadGlobal, 1)}</td></tr>`;
+
+const tbSys = document.querySelector('#tblSistemas tbody');
+let sumBase = 0, sumProp = 0, sumGap = 0, sumCost = 0;
+tbSys.innerHTML = dashboardData.sistemas.map(s => {
+  const brecha = s.base - s.propuesto;
+  const costo = brecha * tarifaPromedio;
+  sumBase += s.base; sumProp += s.propuesto; sumGap += brecha; sumCost += costo;
+  return `<tr>
+    <td class="month">${s.area}</td>
+    <td>${fNum(s.base)}</td>
+    <td>${fNum(s.propuesto)}</td>
+    <td>${fNum(brecha)}</td>
+    <td>${fCLP(costo)}</td>
+  </tr>`;
+}).join('');
+document.querySelector('#tblSistemas tfoot').innerHTML = `
+  <tr><td>Total</td><td>${fNum(sumBase)}</td><td>${fNum(sumProp)}</td><td>${fNum(sumGap)}</td><td>${fCLP(sumCost)}</td></tr>`;
+
+document.getElementById('measures').innerHTML = dashboardData.medidas.map(med => `
+  <div class="measure" style="--accent:${med.color}">
+    <div class="m-area">${med.area}</div>
+    <div class="m-name">${med.nombre}</div>
+    <div class="m-desc">${med.desc}</div>
+    <div class="m-impact"><span>Reducción</span><b>${fNum(med.kwh)} kWh/año</b></div>
+    <div class="m-impact"><span>Inversión</span><b>${fCLP(med.costo)}</b></div>
+  </div>`).join('');
+
+/* =================================================================
+   5. TABLA DINÁMICA INTERACTIVA
+================================================================= */
+const monthSelect = document.getElementById('monthSelect');
+monthSelect.innerHTML = `<option value="all">Todos los meses</option>` +
+  months.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+
+function renderMonth(val) {
+  let tarifa, costo, consumo, titulo;
+  if (val === 'all') {
+    tarifa = tarifaPromedio; costo = totalCosto; consumo = totalConsumo; titulo = 'Todos los meses (anual)';
+  } else {
+    const i = +val;
+    tarifa = dashboardData.tarifa[i]; costo = costoBaseMes[i]; consumo = dashboardData.consumoBaseMes[i]; titulo = months[i];
+  }
+  document.getElementById('miniGrid').innerHTML = `
+    <div class="mini"><div class="label">Tarifa promedio [CLP/kWh]</div><div class="value">${fDec(tarifa, 1)}</div></div>
+    <div class="mini"><div class="label">Costo mensual energía [CLP]</div><div class="value">${fCLP(costo)}</div></div>
+    <div class="mini"><div class="label">Consumo eléctrico [kWh]</div><div class="value">${fNum(consumo)}</div></div>`;
+  updateMonthChart(val, titulo);
+}
+monthSelect.addEventListener('change', e => renderMonth(e.target.value));
+
+/* =================================================================
+   6. EVALUACIÓN FINANCIERA — VAN / TIR / Payback + simulación
+================================================================= */
+function computeNPV(rate, flows) {
+  return flows.reduce((acc, f, t) => acc + f / Math.pow(1 + rate, t), 0);
+}
+function computeIRR(flows) {
+  let lo = -0.9, hi = 1.5; // rango de búsqueda
+  const f = r => computeNPV(r, flows);
+  if (f(lo) * f(hi) > 0) return null;
+  for (let k = 0; k < 100; k++) {
+    const mid = (lo + hi) / 2;
+    const v = f(mid);
+    if (Math.abs(v) < 1) return mid;
+    if (f(lo) * v < 0) hi = mid; else lo = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function buildScenario(excludeAux) {
+  const fin = dashboardData.finanzas;
+  const capex = fin.capexTotal - (excludeAux ? fin.capexAuxiliar : 0);
+  const ahorro = fin.ahorroAnualTotal - (excludeAux ? fin.ahorroAnualAuxiliar : 0);
+  const flows = [-capex];
+  for (let y = 1; y <= fin.horizonte; y++) flows.push(ahorro);
+  const van = computeNPV(fin.tasaDescuento, flows);
+  const tir = computeIRR(flows);
+  const payback = capex / ahorro;
+  // flujo de caja acumulado para el gráfico
+  let acc = -capex; const cumulative = [];
+  flows.forEach((f, t) => { if (t > 0) acc += f; cumulative.push(t === 0 ? -capex : acc); });
+  return { capex, ahorro, van, tir, payback, flows, cumulative };
+}
+
+function renderFinancial(excludeAux) {
+  const s = buildScenario(excludeAux);
+  document.getElementById('finKpis').innerHTML = `
+    <div class="kpi green"><div class="label">VAN (10 años, 10%)</div><div class="value">${fCLP(s.van)}</div><div class="unit">Valor Actual Neto</div></div>
+    <div class="kpi blue"><div class="label">TIR</div><div class="value">${s.tir !== null ? fDec(s.tir * 100, 1) + '%' : 'N/A'}</div><div class="unit">Tasa Interna de Retorno</div></div>
+    <div class="kpi amber"><div class="label">Inversión (CAPEX)</div><div class="value">${fCLP(s.capex)}</div><div class="unit">Inversión inicial</div></div>
+    <div class="kpi green"><div class="label">Payback</div><div class="value">${fDec(s.payback, 1)}</div><div class="unit">años</div></div>`;
+  updateCashChart(s);
+  const tag = document.getElementById('scenarioTag');
+  tag.textContent = excludeAux ? 'Sin Sistema Auxiliar' : 'Escenario Completo';
+  tag.classList.toggle('alt', excludeAux);
+}
+
+document.getElementById('auxSwitch').addEventListener('change', e => renderFinancial(e.target.checked));
+
+/* =================================================================
+   CHART.JS — configuración común
+================================================================= */
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+function themeColors() {
+  const cs = getComputedStyle(document.body);
+  return {
+    grid: cs.getPropertyValue('--border').trim(),
+    text: cs.getPropertyValue('--text-dim').trim(),
+    green: cs.getPropertyValue('--green').trim(),
+    blue: cs.getPropertyValue('--blue').trim(),
+    amber: cs.getPropertyValue('--amber').trim(),
+    red: cs.getPropertyValue('--red').trim(),
+  };
+}
+function gridOpts() {
+  const c = themeColors();
+  return {
+    plugins: { legend: { labels: { color: c.text, font: { size: 12 } } } },
+    scales: {
+      x: { ticks: { color: c.text }, grid: { color: c.grid } },
+      y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true },
+    },
+    maintainAspectRatio: false,
+    responsive: true,
+  };
+}
+
+let chartProdCons, chartBaseProp, chartMonth, chartCash;
+
+function initCharts() {
+  const c = themeColors();
+
+  chartProdCons = new Chart(document.getElementById('chartProdCons'), {
+    type: 'bar',
+    data: {
+      labels: months.map(m => m.slice(0, 3)),
+      datasets: [
+        { label: 'Producción (ton)', data: dashboardData.produccion, backgroundColor: c.blue, yAxisID: 'y', borderRadius: 5 },
+        { label: 'Consumo (kWh)', data: dashboardData.consumoBaseMes, type: 'line', borderColor: c.amber, backgroundColor: c.amber, yAxisID: 'y1', tension: 0.35, pointRadius: 3, borderWidth: 2 },
+      ]
+    },
+    options: {
+      ...gridOpts(),
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { position: 'left', ticks: { color: c.text }, grid: { color: c.grid }, title: { display: true, text: 'ton', color: c.text } },
+        y1: { position: 'right', ticks: { color: c.text }, grid: { drawOnChartArea: false }, title: { display: true, text: 'kWh', color: c.text } },
+      }
+    }
+  });
+
+  chartBaseProp = new Chart(document.getElementById('chartBaseProp'), {
+    type: 'bar',
+    data: {
+      labels: months.map(m => m.slice(0, 3)),
+      datasets: [
+        { label: 'Caso Base (kWh)', data: dashboardData.consumoBaseMes, backgroundColor: c.red, borderRadius: 5 },
+        { label: 'Propuesto (kWh)', data: consumoCorregidoMes, backgroundColor: c.green, borderRadius: 5 },
+      ]
+    },
+    options: gridOpts()
+  });
+
+  chartMonth = new Chart(document.getElementById('chartMonth'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Consumo (kWh)', data: [], backgroundColor: c.blue, borderRadius: 5 }] },
+    options: gridOpts()
+  });
+
+  chartCash = new Chart(document.getElementById('chartCash'), {
+    type: 'bar',
+    data: { labels: [], datasets: [] },
+    options: {
+      ...gridOpts(),
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text, callback: v => '$' + (v / 1e6) + 'M' }, grid: { color: c.grid } },
+      }
+    }
+  });
+
+  renderMonth('all');
+  renderFinancial(false);
+}
+
+function updateMonthChart(val, titulo) {
+  const c = themeColors();
+  if (val === 'all') {
+    chartMonth.data.labels = months.map(m => m.slice(0, 3));
+    chartMonth.data.datasets[0].data = dashboardData.consumoBaseMes;
+    chartMonth.data.datasets[0].backgroundColor = months.map(m => gapMonths.includes(m) ? c.red : c.green);
+  } else {
+    const i = +val;
+    chartMonth.data.labels = [months[i]];
+    chartMonth.data.datasets[0].data = [dashboardData.consumoBaseMes[i]];
+    chartMonth.data.datasets[0].backgroundColor = gapMonths.includes(months[i]) ? c.red : c.green;
+  }
+  chartMonth.data.datasets[0].label = 'Consumo (kWh) · ' + titulo;
+  chartMonth.update();
+}
+
+function updateCashChart(s) {
+  const c = themeColors();
+  const labels = Array.from({ length: dashboardData.finanzas.horizonte + 1 }, (_, t) => 'Año ' + t);
+  chartCash.data.labels = labels;
+  chartCash.data.datasets = [
+    { label: 'Flujo anual', data: s.flows, backgroundColor: s.flows.map(f => f < 0 ? c.red : c.blue), borderRadius: 4 },
+    { label: 'Flujo acumulado', type: 'line', data: s.cumulative, borderColor: c.green, backgroundColor: c.green, tension: 0.25, pointRadius: 3, borderWidth: 2 },
+  ];
+  chartCash.update();
+}
+
+function refreshChartsTheme() {
+  [chartProdCons, chartBaseProp, chartMonth, chartCash].forEach(ch => ch && ch.destroy());
+  initCharts();
+}
+
+initCharts();
+</script>
+</body>
+</html>
