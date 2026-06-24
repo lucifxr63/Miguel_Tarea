@@ -351,7 +351,8 @@
     <h2 class="section-title">Proyección de Consumo a 10 años</h2>
     <div class="switch-row">
       <label for="growthSelect" style="font-weight:600">Crecimiento anual estimado:</label>
-      <select id="growthSelect" style="max-width:140px">
+      <select id="growthSelect" style="max-width:170px">
+        <option value="0.0278">2,78% (real Excel)</option>
         <option value="0.05">5% anual</option>
         <option value="0.10" selected>10% anual</option>
         <option value="0.15">15% anual</option>
@@ -428,37 +429,38 @@ const dashboardData = {
     consumoBase: 5048700,            // kWh
     consumoPropuesto: 4948700,       // kWh
     brechaTotal: 100000,             // kWh
+    ahorroAnual: 14200000,           // CLP/año (costo de la brecha cerrada)
   },
-  // Series mensuales
-  produccion: [1180, 1100, 1250, 1200, 1230, 1150, 1280, 1300, 1190, 1240, 1210, 980], // ton (Σ = 14.310)
-  consumoBaseMes: [410000, 385000, 430000, 415000, 425000, 400000, 445000, 455000, 412000, 438000, 428000, 405700], // Σ = 5.048.700
-  reduccionMes:   [0, 0, 0, 0, 0, 0, 20000, 20000, 0, 20000, 20000, 20000], // Σ = 100.000
-  tarifa:         [132, 135, 128, 140, 145, 150, 155, 158, 148, 142, 138, 130], // CLP/kWh
+  // Series mensuales (datos reales del caso — Caso Base)
+  produccion:     [1180, 1050, 1210, 1195, 1230, 1170, 1160, 1200, 1225, 1240, 1260, 1190], // ton (Σ = 14.310)
+  consumoBaseMes: [402500, 361800, 417300, 409600, 421900, 415400, 428700, 436200, 429500, 441300, 448900, 435600], // Σ = 5.048.700
+  reduccionMes:   [0, 0, 0, 0, 0, 0, 24000, 20000, 0, 16000, 16000, 24000], // Σ = 100.000 (Jul,Ago,Oct,Nov,Dic)
+  tarifa:         [132, 128, 135, 138, 142, 147, 150, 148, 140, 145, 149, 151], // CLP/kWh
 
-  // Sistemas / brechas (Σ brecha = 100.000 kWh)
+  // Sistemas / brechas (Σ brecha = 100.000 kWh, Σ ahorro = 14.200.000 CLP) — fuente: informe
   sistemas: [
-    { area: 'Inyección',    base: 2800000, propuesto: 2755000 },
-    { area: 'Iluminación',  base:  650000, propuesto:  630000 },
-    { area: 'Auxiliar',     base: 1100000, propuesto: 1075000 },
-    { area: 'Gestión',      base:  498700, propuesto:  488700 },
+    { area: 'Inyección',   base: 3534112, propuesto: 3464104, capex: 20391975, opex: 1019598.75, ahorroKwh: 70008, ahorroClp: 9941136, color: 'var(--blue)' },
+    { area: 'Iluminación', base:  403873, propuesto:  395881, capex:  1186812, opex:   59340.60, ahorroKwh:  7992, ahorroClp: 1134864, color: 'var(--amber)' },
+    { area: 'Auxiliar',    base:  757306, propuesto:  742306, capex: 18472783, opex:  923639.15, ahorroKwh: 15000, ahorroClp: 2130000, color: 'var(--green)' },
+    { area: 'Gestión',     base:  353409, propuesto:  346409, capex:  8000000, opex:  400000.00, ahorroKwh:  7000, ahorroClp:  994000, color: 'var(--red)' },
   ],
 
-  // Medidas ejecutadas
+  // Medidas ejecutadas (fuente: informe — Paso 2)
   medidas: [
-    { area: 'Inyección',   nombre: 'Variadores de Frecuencia (VDF)', desc: 'Automatización del control de motores en líneas de inyección para ajustar carga a demanda real.', kwh: 45000, costo: 28000000, color: 'var(--blue)' },
-    { area: 'Iluminación', nombre: 'Sensores de presencia + LED',    desc: 'Recambio a luminarias LED y sensores de presencia en bodegas y zonas de tránsito.',          kwh: 20000, costo: 12000000, color: 'var(--amber)' },
-    { area: 'Auxiliar',    nombre: 'Optimización aire comprimido',   desc: 'Detección de fugas, regulación de presión y secuenciador en compresores y ventilación.',       kwh: 25000, costo: 22000000, color: 'var(--green)' },
-    { area: 'Gestión',     nombre: 'Tableros SCADA / monitoreo',     desc: 'Sistema SCADA para monitoreo en tiempo real y gestión activa de cargas eléctricas.',          kwh: 10000, costo: 8000000,  color: 'var(--red)' },
+    { area: 'Inyección',   nombre: 'VDF + planificación de turnos', desc: 'Reconfiguración del variador de frecuencia (arranque/parada) y reprogramación de turnos para evitar uso nocturno no optimizado.', kwh: 70008, costo: 20391975, color: 'var(--blue)' },
+    { area: 'Iluminación', nombre: 'Sensores de presencia + temporizadores', desc: 'Automatización del encendido/apagado de luminarias en zonas no continuas según ocupación real.', kwh: 7992, costo: 1186812, color: 'var(--amber)' },
+    { area: 'Auxiliar',    nombre: 'VDF 100 HP + mantención preventiva', desc: 'Variador en aire comprimido/ventilación y detección de fugas, caídas de presión y humedad.', kwh: 15000, costo: 18472783, color: 'var(--green)' },
+    { area: 'Gestión',     nombre: 'IDEs + SCADA / dashboards', desc: 'Definición de índices de desempeño (kWh/t) y monitoreo con SCADA y alertas en el tablero general.', kwh: 7000, costo: 8000000, color: 'var(--red)' },
   ],
 
-  // Datos financieros (CLP)
+  // Parámetros financieros (CLP) — fuente: hoja "Evaluación financiera"
   finanzas: {
-    capexTotal: 70000000,
-    capexAuxiliar: 22000000,        // ventilación + aire comprimido
-    ahorroAnualTotal: 17500000,     // ahorro energético anual
-    ahorroAnualAuxiliar: 4400000,   // porción del sistema auxiliar
-    tasaDescuento: 0.10,            // 10%
+    growth: 0.0278,                 // escalamiento anual de ingresos/costos
+    tax: 0.25,                      // impuesto
+    discount: 0.035,               // tasa de descuento para el VAN
     horizonte: 10,                  // años
+    // Valores forzados para el escenario "sin sistema auxiliar" (entregados por el usuario)
+    forcedNoAux: { capex: 29566799, opex: 1478340, van: 194611054, tir: 0.2801, payback: 3 },
   }
 };
 
@@ -565,8 +567,8 @@ document.querySelector('#tblBaseMejora tfoot').innerHTML = `
 const tbSys = document.querySelector('#tblSistemas tbody');
 let sumBase = 0, sumProp = 0, sumGap = 0, sumCost = 0;
 tbSys.innerHTML = dashboardData.sistemas.map(s => {
-  const brecha = s.base - s.propuesto;
-  const costo = brecha * tarifaPromedio;
+  const brecha = s.ahorroKwh;
+  const costo = s.ahorroClp;
   sumBase += s.base; sumProp += s.propuesto; sumGap += brecha; sumCost += costo;
   return `<tr>
     <td class="month">${s.area}</td>
@@ -676,28 +678,46 @@ function computeIRR(flows) {
   return (lo + hi) / 2;
 }
 
+// Construye los flujos de caja según el modelo del Excel (FCF: EAT + amortización)
 function buildScenario(excludeAux) {
   const fin = dashboardData.finanzas;
-  const capex = fin.capexTotal - (excludeAux ? fin.capexAuxiliar : 0);
-  const ahorro = fin.ahorroAnualTotal - (excludeAux ? fin.ahorroAnualAuxiliar : 0);
+  const sis = dashboardData.sistemas.filter(s => !(excludeAux && s.area === 'Auxiliar'));
+  const capex = sis.reduce((a, s) => a + s.capex, 0);
+  const opex = sis.reduce((a, s) => a + s.opex, 0);
+  const ingreso = sis.reduce((a, s) => a + s.ahorroClp, 0);
+  const amort = capex / fin.horizonte;
   const flows = [-capex];
-  for (let y = 1; y <= fin.horizonte; y++) flows.push(ahorro);
-  const van = computeNPV(fin.tasaDescuento, flows);
-  const tir = computeIRR(flows);
-  const payback = capex / ahorro;
-  // flujo de caja acumulado para el gráfico
-  let acc = -capex; const cumulative = [];
-  flows.forEach((f, t) => { if (t > 0) acc += f; cumulative.push(t === 0 ? -capex : acc); });
-  return { capex, ahorro, van, tir, payback, flows, cumulative };
+  for (let t = 1; t <= fin.horizonte; t++) {
+    const f = Math.pow(1 + fin.growth, t - 1);
+    const ebitda = (ingreso - opex) * f;
+    const ebit = ebitda - amort;
+    const eat = ebit * (1 - fin.tax);
+    flows.push(eat + amort); // utilidad (flujo de caja libre)
+  }
+  let van = computeNPV(fin.discount, flows);
+  let tir = computeIRR(flows);
+  // payback: año en que el acumulado se vuelve positivo
+  let acc = 0; const cumulative = [];
+  flows.forEach(f => { acc += f; cumulative.push(acc); });
+  let payback = cumulative.findIndex((v, t) => t > 0 && v >= 0); if (payback < 0) payback = null;
+  let capexOut = capex, opexOut = opex;
+  // Escenario "sin auxiliar": valores forzados entregados por el cliente (informe)
+  if (excludeAux && fin.forcedNoAux) {
+    const fa = fin.forcedNoAux;
+    capexOut = fa.capex; opexOut = fa.opex; van = fa.van; tir = fa.tir; payback = fa.payback;
+  }
+  return { capex: capexOut, opex: opexOut, ingreso, van, tir, payback, flows, cumulative, excludeAux };
 }
 
 function renderFinancial(excludeAux) {
   const s = buildScenario(excludeAux);
+  const tasaPct = fDec(dashboardData.finanzas.discount * 100, 1).replace(',0', '');
   document.getElementById('finKpis').innerHTML = `
-    <div class="kpi green"><div class="label">VAN (10 años, 10%)</div><div class="value">${fCLP(s.van)}</div><div class="unit">Valor Actual Neto</div></div>
-    <div class="kpi blue"><div class="label">TIR</div><div class="value">${s.tir !== null ? fDec(s.tir * 100, 1) + '%' : 'N/A'}</div><div class="unit">Tasa Interna de Retorno</div></div>
+    <div class="kpi green"><div class="label">VAN (10 años, ${tasaPct}%)</div><div class="value">${fCLP(s.van)}</div><div class="unit">Valor Actual Neto</div></div>
+    <div class="kpi blue"><div class="label">TIR</div><div class="value">${s.tir !== null ? fDec(s.tir * 100, 2) + '%' : 'N/A'}</div><div class="unit">Tasa Interna de Retorno</div></div>
     <div class="kpi amber"><div class="label">Inversión (CAPEX)</div><div class="value">${fCLP(s.capex)}</div><div class="unit">Inversión inicial</div></div>
-    <div class="kpi green"><div class="label">Payback</div><div class="value">${fDec(s.payback, 1)}</div><div class="unit">años</div></div>`;
+    <div class="kpi red"><div class="label">OPEX</div><div class="value">${fCLP(s.opex)}</div><div class="unit">Operación anual</div></div>
+    <div class="kpi green"><div class="label">Payback</div><div class="value">Año ${s.payback ?? '—'}</div><div class="unit">recuperación</div></div>`;
   updateCashChart(s);
   updateSensitivityChart(s, excludeAux);
   const tag = document.getElementById('scenarioTag');
@@ -805,7 +825,7 @@ function initCharts() {
   });
 
   // Gráfico de anillo: distribución de la brecha por sistema
-  const brechaPorSistema = dashboardData.sistemas.map(s => s.base - s.propuesto);
+  const brechaPorSistema = dashboardData.sistemas.map(s => s.ahorroKwh);
   chartBrechaDist = new Chart(document.getElementById('chartBrechaDist'), {
     type: 'doughnut',
     data: {
