@@ -249,6 +249,11 @@
         <div class="chart-box"><canvas id="chartBaseProp"></canvas></div>
       </div>
     </div>
+    <div class="card">
+      <h3 class="block-title">Evolución de la Intensidad Energética (kWh/ton)</h3>
+      <p class="muted">La verdadera métrica de éxito: intensidad real mensual vs. el objetivo proyectado (línea plana). Estar por encima del objetivo indica ineficiencia relativa a la producción.</p>
+      <div class="chart-box"><canvas id="chartIntensidad"></canvas></div>
+    </div>
   </section>
 
   <!-- ============ CONCLUSIONES Y CORRECCIONES ============ -->
@@ -302,6 +307,11 @@
         </div>
       </div>
       <div class="card">
+        <h3 class="block-title">Distribución de la Brecha por Sistema</h3>
+        <p class="muted">¿De dónde viene la pérdida de 100.000 kWh/año? Identifica de un vistazo el sistema más crítico.</p>
+        <div class="chart-box short"><canvas id="chartBrechaDist"></canvas></div>
+      </div>
+      <div class="card">
         <h3 class="block-title">Sistemas / Brechas anuales</h3>
         <div class="table-scroll">
           <table id="tblSistemas">
@@ -353,9 +363,16 @@
 
     <div class="kpi-grid" id="finKpis"></div>
 
-    <div class="card">
-      <h3 class="block-title">Flujo de Caja Neto a 10 años</h3>
-      <div class="chart-box"><canvas id="chartCash"></canvas></div>
+    <div class="grid-2">
+      <div class="card">
+        <h3 class="block-title">Flujo de Caja Neto a 10 años</h3>
+        <div class="chart-box"><canvas id="chartCash"></canvas></div>
+      </div>
+      <div class="card">
+        <h3 class="block-title">Curva de Sensibilidad: VAN vs. Tasa de Descuento</h3>
+        <p class="muted">El VAN cae a medida que sube la tasa de descuento y cruza el eje cero exactamente en la TIR. Robustez del caso financiero.</p>
+        <div class="chart-box"><canvas id="chartSensibilidad"></canvas></div>
+      </div>
     </div>
   </section>
 
@@ -423,6 +440,7 @@ const totalProd = dashboardData.produccion.reduce((a, b) => a + b, 0);
 const totalConsumo = dashboardData.consumoBaseMes.reduce((a, b) => a + b, 0);
 const totalCosto = costoBaseMes.reduce((a, b) => a + b, 0);
 const intensidadGlobal = totalConsumo / totalProd;
+const intensidadObjetivo = dashboardData.meta.consumoPropuesto / dashboardData.meta.produccionAnual; // kWh/ton objetivo
 const tarifaPromedio = dashboardData.tarifa.reduce((a, b) => a + b, 0) / 12;
 
 /* =================================================================
@@ -599,6 +617,7 @@ function renderFinancial(excludeAux) {
     <div class="kpi amber"><div class="label">Inversión (CAPEX)</div><div class="value">${fCLP(s.capex)}</div><div class="unit">Inversión inicial</div></div>
     <div class="kpi green"><div class="label">Payback</div><div class="value">${fDec(s.payback, 1)}</div><div class="unit">años</div></div>`;
   updateCashChart(s);
+  updateSensitivityChart(s, excludeAux);
   const tag = document.getElementById('scenarioTag');
   tag.textContent = excludeAux ? 'Sin Sistema Auxiliar' : 'Escenario Completo';
   tag.classList.toggle('alt', excludeAux);
@@ -635,7 +654,7 @@ function gridOpts() {
   };
 }
 
-let chartProdCons, chartBaseProp, chartMonth, chartCash;
+let chartProdCons, chartBaseProp, chartMonth, chartCash, chartIntensidad, chartBrechaDist, chartSensibilidad;
 
 function initCharts() {
   const c = themeColors();
@@ -689,6 +708,50 @@ function initCharts() {
     }
   });
 
+  // Gráfico de líneas: Intensidad energética real vs objetivo (plano)
+  chartIntensidad = new Chart(document.getElementById('chartIntensidad'), {
+    type: 'line',
+    data: {
+      labels: months.map(m => m.slice(0, 3)),
+      datasets: [
+        { label: 'Intensidad real (kWh/ton)', data: intensidadMes, borderColor: c.amber, backgroundColor: 'transparent', tension: 0.35, pointRadius: 3, borderWidth: 2,
+          segment: { borderColor: ctx => ctx.p1.parsed.y > intensidadObjetivo ? c.red : c.green } },
+        { label: 'Objetivo (' + fDec(intensidadObjetivo, 1) + ' kWh/ton)', data: months.map(() => intensidadObjetivo), borderColor: c.blue, borderDash: [6, 5], pointRadius: 0, borderWidth: 2, tension: 0 },
+      ]
+    },
+    options: { ...gridOpts(), scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: false } } }
+  });
+
+  // Gráfico de anillo: distribución de la brecha por sistema
+  const brechaPorSistema = dashboardData.sistemas.map(s => s.base - s.propuesto);
+  chartBrechaDist = new Chart(document.getElementById('chartBrechaDist'), {
+    type: 'doughnut',
+    data: {
+      labels: dashboardData.sistemas.map(s => s.area),
+      datasets: [{ data: brechaPorSistema, backgroundColor: [c.blue, c.amber, c.green, c.red], borderColor: getComputedStyle(document.body).getPropertyValue('--card').trim(), borderWidth: 3 }]
+    },
+    options: {
+      maintainAspectRatio: false, responsive: true, cutout: '58%',
+      plugins: {
+        legend: { position: 'right', labels: { color: c.text, font: { size: 12 }, padding: 12 } },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fNum(ctx.parsed)} kWh (${fDec(ctx.parsed / dashboardData.meta.brechaTotal * 100, 1)}%)` } }
+      }
+    }
+  });
+
+  chartSensibilidad = new Chart(document.getElementById('chartSensibilidad'), {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: {
+      ...gridOpts(),
+      plugins: { legend: { labels: { color: c.text } }, tooltip: { callbacks: { label: ctx => 'VAN: ' + fCLP(ctx.parsed.y) } } },
+      scales: {
+        x: { title: { display: true, text: 'Tasa de descuento', color: c.text }, ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text, callback: v => '$' + (v / 1e6).toFixed(0) + 'M' }, grid: { color: c.grid }, beginAtZero: false },
+      }
+    }
+  });
+
   renderMonth('all');
   renderFinancial(false);
 }
@@ -720,8 +783,31 @@ function updateCashChart(s) {
   chartCash.update();
 }
 
+function updateSensitivityChart(s, excludeAux) {
+  const c = themeColors();
+  const rates = [];
+  for (let r = 0; r <= 0.35001; r += 0.025) rates.push(r);
+  const vanCurve = rates.map(r => computeNPV(r, s.flows));
+  chartSensibilidad.data.labels = rates.map(r => (r * 100).toFixed(1) + '%');
+  chartSensibilidad.data.datasets = [
+    {
+      label: 'VAN' + (excludeAux ? ' (sin Auxiliar)' : ''),
+      data: vanCurve,
+      borderColor: excludeAux ? c.amber : c.green,
+      backgroundColor: 'transparent',
+      tension: 0.25, pointRadius: 2, borderWidth: 2.5,
+    },
+    {
+      label: 'VAN = 0 (TIR ≈ ' + (s.tir !== null ? fDec(s.tir * 100, 1) + '%' : 'N/A') + ')',
+      data: rates.map(() => 0),
+      borderColor: c.red, borderDash: [6, 5], pointRadius: 0, borderWidth: 1.5, tension: 0,
+    },
+  ];
+  chartSensibilidad.update();
+}
+
 function refreshChartsTheme() {
-  [chartProdCons, chartBaseProp, chartMonth, chartCash].forEach(ch => ch && ch.destroy());
+  [chartProdCons, chartBaseProp, chartMonth, chartCash, chartIntensidad, chartBrechaDist, chartSensibilidad].forEach(ch => ch && ch.destroy());
   initCharts();
 }
 
