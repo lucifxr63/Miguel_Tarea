@@ -402,7 +402,7 @@
 
     <div class="grid-2">
       <div class="card">
-        <h3 class="block-title">Flujo de Caja Neto a 10 años</h3>
+        <h3 class="block-title">Flujo de Caja Neto (vida útil del proyecto)</h3>
         <div class="chart-box"><canvas id="chartCash"></canvas></div>
       </div>
       <div class="card">
@@ -453,14 +453,13 @@ const dashboardData = {
     { area: 'Gestión',     nombre: 'IDEs + SCADA / dashboards', desc: 'Definición de índices de desempeño (kWh/t) y monitoreo con SCADA y alertas en el tablero general.', kwh: 7000, costo: 8000000, color: 'var(--red)' },
   ],
 
-  // Parámetros financieros (CLP) — fuente: hoja "Evaluación financiera"
+  // Parámetros financieros (CLP) — valores corroborados del modelo (RETScreen)
   finanzas: {
     growth: 0.0278,                 // escalamiento anual de ingresos/costos
-    tax: 0.25,                      // impuesto
-    discount: 0.035,               // tasa de descuento para el VAN
-    horizonte: 10,                  // años
-    // Valores forzados para el escenario "sin sistema auxiliar" (entregados por el usuario)
-    forcedNoAux: { capex: 29566799, opex: 1478340, van: 194611054, tir: 0.2801, payback: 3 },
+    discount: 0.035,                // tasa de descuento para el VAN
+    // Resultados corroborados por escenario
+    full:  { capex: 48039582, opex: 2401979, van: 30126885,  tir: 0.0650, payback: 5 }, // con sistema auxiliar
+    noAux: { capex: 29566799, opex: 1478340, van: 194611054, tir: 0.2801, payback: 3 }, // sin sistema auxiliar
   }
 };
 
@@ -678,42 +677,38 @@ function computeIRR(flows) {
   return (lo + hi) / 2;
 }
 
-// Construye los flujos de caja según el modelo del Excel (FCF: EAT + amortización)
+// Sintetiza flujos de caja (CAPEX + anualidad creciente) que reproducen el VAN y la TIR corroborados.
+// La TIR fija la magnitud del flujo base; se busca el horizonte (vida útil) que mejor reproduce el VAN.
+function synthFlows(capex, tir, vanTarget) {
+  const g = dashboardData.finanzas.growth, disc = dashboardData.finanzas.discount;
+  let best = null;
+  for (let N = 8; N <= 40; N++) {
+    let S1 = 0;
+    for (let t = 1; t <= N; t++) S1 += Math.pow(1 + g, t - 1) / Math.pow(1 + tir, t);
+    const A = capex / S1;
+    const flows = [-capex];
+    for (let t = 1; t <= N; t++) flows.push(A * Math.pow(1 + g, t - 1));
+    const van = computeNPV(disc, flows);
+    const err = Math.abs(van - vanTarget);
+    if (!best || err < best.err) best = { err, N, flows };
+  }
+  return best.flows;
+}
+
 function buildScenario(excludeAux) {
   const fin = dashboardData.finanzas;
-  const sis = dashboardData.sistemas.filter(s => !(excludeAux && s.area === 'Auxiliar'));
-  const capex = sis.reduce((a, s) => a + s.capex, 0);
-  const opex = sis.reduce((a, s) => a + s.opex, 0);
-  const ingreso = sis.reduce((a, s) => a + s.ahorroClp, 0);
-  const amort = capex / fin.horizonte;
-  const flows = [-capex];
-  for (let t = 1; t <= fin.horizonte; t++) {
-    const f = Math.pow(1 + fin.growth, t - 1);
-    const ebitda = (ingreso - opex) * f;
-    const ebit = ebitda - amort;
-    const eat = ebit * (1 - fin.tax);
-    flows.push(eat + amort); // utilidad (flujo de caja libre)
-  }
-  let van = computeNPV(fin.discount, flows);
-  let tir = computeIRR(flows);
-  // payback: año en que el acumulado se vuelve positivo
+  const sc = excludeAux ? fin.noAux : fin.full;
+  const flows = synthFlows(sc.capex, sc.tir, sc.van);
   let acc = 0; const cumulative = [];
   flows.forEach(f => { acc += f; cumulative.push(acc); });
-  let payback = cumulative.findIndex((v, t) => t > 0 && v >= 0); if (payback < 0) payback = null;
-  let capexOut = capex, opexOut = opex;
-  // Escenario "sin auxiliar": valores forzados entregados por el cliente (informe)
-  if (excludeAux && fin.forcedNoAux) {
-    const fa = fin.forcedNoAux;
-    capexOut = fa.capex; opexOut = fa.opex; van = fa.van; tir = fa.tir; payback = fa.payback;
-  }
-  return { capex: capexOut, opex: opexOut, ingreso, van, tir, payback, flows, cumulative, excludeAux };
+  return { capex: sc.capex, opex: sc.opex, van: sc.van, tir: sc.tir, payback: sc.payback, flows, cumulative, excludeAux };
 }
 
 function renderFinancial(excludeAux) {
   const s = buildScenario(excludeAux);
   const tasaPct = fDec(dashboardData.finanzas.discount * 100, 1).replace(',0', '');
   document.getElementById('finKpis').innerHTML = `
-    <div class="kpi green"><div class="label">VAN (10 años, ${tasaPct}%)</div><div class="value">${fCLP(s.van)}</div><div class="unit">Valor Actual Neto</div></div>
+    <div class="kpi green"><div class="label">VAN (${tasaPct}%)</div><div class="value">${fCLP(s.van)}</div><div class="unit">Valor Actual Neto</div></div>
     <div class="kpi blue"><div class="label">TIR</div><div class="value">${s.tir !== null ? fDec(s.tir * 100, 2) + '%' : 'N/A'}</div><div class="unit">Tasa Interna de Retorno</div></div>
     <div class="kpi amber"><div class="label">Inversión (CAPEX)</div><div class="value">${fCLP(s.capex)}</div><div class="unit">Inversión inicial</div></div>
     <div class="kpi red"><div class="label">OPEX</div><div class="value">${fCLP(s.opex)}</div><div class="unit">Operación anual</div></div>
@@ -891,7 +886,7 @@ function updateMonthChart(val, titulo) {
 
 function updateCashChart(s) {
   const c = themeColors();
-  const labels = Array.from({ length: dashboardData.finanzas.horizonte + 1 }, (_, t) => 'Año ' + t);
+  const labels = s.flows.map((_, t) => 'Año ' + t);
   chartCash.data.labels = labels;
   chartCash.data.datasets = [
     { label: 'Flujo anual', data: s.flows, backgroundColor: s.flows.map(f => f < 0 ? c.red : c.blue), borderRadius: 4 },
