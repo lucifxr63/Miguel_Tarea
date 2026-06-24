@@ -210,6 +210,18 @@
   .scenario-tag { margin-left: auto; font-size: 0.8rem; font-weight: 700; padding: 6px 14px; border-radius: 20px; background: var(--green-bg); color: var(--green); }
   .scenario-tag.alt { background: var(--amber-bg); color: var(--amber); }
 
+  .fin-input { display: flex; flex-direction: column; gap: 6px; }
+  .fin-input label { font-size: 0.76rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .fin-input input[type="number"] {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 9px 12px; border-radius: 8px; font-size: 1rem; font-weight: 700; width: 130px;
+  }
+  .fin-input input[type="number"]:focus { outline: none; border-color: var(--amber); }
+  .fin-savings { font-size: 1.15rem; font-weight: 800; color: var(--green); padding: 7px 0; }
+
+  .comp-table { margin-top: 18px; }
+  .comp-note { font-size: 0.85rem; color: var(--text-dim); margin-top: 14px; padding: 12px 14px; background: var(--gray-bg); border-radius: 10px; }
+
   footer { text-align: center; color: var(--text-faint); font-size: 0.8rem; margin-top: 40px; }
 </style>
 </head>
@@ -342,6 +354,7 @@
         <select id="monthSelect"></select>
       </div>
       <div class="mini-grid" id="miniGrid"></div>
+      <div id="monthComparison" class="comp-table"></div>
       <div class="chart-box short" style="margin-top:22px"><canvas id="chartMonth"></canvas></div>
     </div>
   </section>
@@ -398,6 +411,22 @@
       <span class="scenario-tag" id="scenarioTag">Escenario Completo</span>
     </div>
 
+    <div class="switch-row" style="gap:24px">
+      <div class="fin-input">
+        <label for="tarifaInput">Tarifa energía [CLP/kWh]</label>
+        <input type="number" id="tarifaInput" value="142" min="0" step="1">
+      </div>
+      <div class="fin-input">
+        <label for="discInput">Tasa de descuento [%]</label>
+        <input type="number" id="discInput" value="3.5" min="0" step="0.1">
+      </div>
+      <div class="fin-input">
+        <label>Ahorro anual estimado</label>
+        <div class="fin-savings" id="ahorroAnual">$0</div>
+      </div>
+      <button class="btn" id="resetFin" style="margin-left:auto">↺ Restaurar (142 · 3,5%)</button>
+    </div>
+
     <div class="kpi-grid" id="finKpis"></div>
 
     <div class="grid-2">
@@ -440,7 +469,7 @@ const dashboardData = {
   // Sistemas / brechas (Σ brecha = 100.000 kWh, Σ ahorro = 14.200.000 CLP) — fuente: informe
   sistemas: [
     { area: 'Inyección',   base: 3534112, propuesto: 3464104, capex: 20391975, opex: 1019598.75, ahorroKwh: 70008, ahorroClp: 9941136, color: 'var(--blue)' },
-    { area: 'Iluminación', base:  403873, propuesto:  395881, capex:  1186812, opex:   59340.60, ahorroKwh:  7992, ahorroClp: 1134864, color: 'var(--amber)' },
+    { area: 'Iluminación', base:  403873, propuesto:  395881, capex:  1174824, opex:   58741.20, ahorroKwh:  7992, ahorroClp: 1134864, color: 'var(--amber)' },
     { area: 'Auxiliar',    base:  757306, propuesto:  742306, capex: 18472783, opex:  923639.15, ahorroKwh: 15000, ahorroClp: 2130000, color: 'var(--green)' },
     { area: 'Gestión',     base:  353409, propuesto:  346409, capex:  8000000, opex:  400000.00, ahorroKwh:  7000, ahorroClp:  994000, color: 'var(--red)' },
   ],
@@ -448,7 +477,7 @@ const dashboardData = {
   // Medidas ejecutadas (fuente: informe — Paso 2)
   medidas: [
     { area: 'Inyección',   nombre: 'VDF + planificación de turnos', desc: 'Reconfiguración del variador de frecuencia (arranque/parada) y reprogramación de turnos para evitar uso nocturno no optimizado.', kwh: 70008, costo: 20391975, color: 'var(--blue)' },
-    { area: 'Iluminación', nombre: 'Sensores de presencia + temporizadores', desc: 'Automatización del encendido/apagado de luminarias en zonas no continuas según ocupación real.', kwh: 7992, costo: 1186812, color: 'var(--amber)' },
+    { area: 'Iluminación', nombre: 'Sensores de presencia + temporizadores', desc: 'Automatización del encendido/apagado de luminarias en zonas no continuas según ocupación real.', kwh: 7992, costo: 1174824, color: 'var(--amber)' },
     { area: 'Auxiliar',    nombre: 'VDF 100 HP + mantención preventiva', desc: 'Variador en aire comprimido/ventilación y detección de fugas, caídas de presión y humedad.', kwh: 15000, costo: 18472783, color: 'var(--green)' },
     { area: 'Gestión',     nombre: 'IDEs + SCADA / dashboards', desc: 'Definición de índices de desempeño (kWh/t) y monitoreo con SCADA y alertas en el tablero general.', kwh: 7000, costo: 8000000, color: 'var(--red)' },
   ],
@@ -456,10 +485,11 @@ const dashboardData = {
   // Parámetros financieros (CLP) — valores corroborados del modelo (RETScreen)
   finanzas: {
     growth: 0.0278,                 // escalamiento anual de ingresos/costos
-    discount: 0.035,                // tasa de descuento para el VAN
-    // Resultados corroborados por escenario
-    full:  { capex: 48039582, opex: 2401979, van: 30126885,  tir: 0.0650, payback: 5 }, // con sistema auxiliar
-    noAux: { capex: 29566799, opex: 1478340, van: 194611054, tir: 0.2801, payback: 3 }, // sin sistema auxiliar
+    discountBase: 0.035,            // tasa de descuento de referencia (VAN corroborado)
+    tarifaBase: 142,                // CLP/kWh de referencia (ahorros corroborados)
+    // Resultados corroborados por escenario (a tarifa 142 y descuento 3,5%)
+    full:  { capex: 48039582, opex: 2401979, van: 30126885,  tir: 0.0650, payback: 5, ahorroKwh: 100000 }, // con sistema auxiliar
+    noAux: { capex: 29566799, opex: 1478340, van: 194611054, tir: 0.2801, payback: 3, ahorroKwh:  85000 }, // sin sistema auxiliar
   }
 };
 
@@ -608,7 +638,49 @@ function renderMonth(val) {
     <div class="mini"><div class="label">Tarifa promedio [CLP/kWh]</div><div class="value">${fDec(tarifa, 1)}</div></div>
     <div class="mini"><div class="label">Costo mensual energía [CLP]</div><div class="value">${fCLP(costo)}</div></div>
     <div class="mini"><div class="label">Consumo eléctrico [kWh]</div><div class="value">${fNum(consumo)}</div></div>`;
+  renderMonthComparison(val);
   updateMonthChart(val, titulo);
+}
+
+// Comparación Caso Base vs Post Mejora — solo para meses con cambios aplicados
+function renderMonthComparison(val) {
+  const box = document.getElementById('monthComparison');
+  const buildRow = (label, i) => {
+    const base = dashboardData.consumoBaseMes[i];
+    const red = dashboardData.reduccionMes[i];
+    const corr = base - red;
+    const tar = dashboardData.tarifa[i];
+    const pct = (red / base) * 100;
+    return `<tr class="${red > 0 ? 'row-corrected' : 'row-none'}">
+      <td class="month">${label}</td>
+      <td>${fNum(base)}</td>
+      <td>${red > 0 ? fNum(red) : '—'}</td>
+      <td>${fNum(corr)}</td>
+      <td>${red > 0 ? fDec(pct, 2) + '%' : '—'}</td>
+      <td>${red > 0 ? fCLP(red * tar) : '—'}</td>
+    </tr>`;
+  };
+  const head = `<table><thead><tr>
+      <th>Mes</th><th>Consumo Base (kWh)</th><th>Reducción (kWh)</th>
+      <th>Post Mejora (kWh)</th><th>% Reducción</th><th>Ahorro (CLP)</th>
+    </tr></thead><tbody>`;
+
+  if (val === 'all') {
+    // Resumen anual: todos los meses con cambios
+    const changed = months.map((m, i) => i).filter(i => dashboardData.reduccionMes[i] > 0);
+    const rows = changed.map(i => buildRow(months[i], i)).join('');
+    const totRed = dashboardData.brechaTotal;
+    const totAhorro = dashboardData.meta.ahorroAnual;
+    box.innerHTML = `<h3 class="block-title">Comparación Base vs. Post Mejora — meses corregidos</h3>${head}${rows}</tbody>
+      <tfoot><tr><td>Total anual</td><td>${fNum(dashboardData.meta.consumoBase)}</td><td>${fNum(totRed)}</td><td>${fNum(dashboardData.meta.consumoPropuesto)}</td><td>${fDec(totRed / dashboardData.meta.consumoBase * 100, 2)}%</td><td>${fCLP(totAhorro)}</td></tr></tfoot></table>`;
+  } else {
+    const i = +val;
+    if (dashboardData.reduccionMes[i] > 0) {
+      box.innerHTML = `<h3 class="block-title">Comparación Base vs. Post Mejora — ${months[i]}</h3>${head}${buildRow(months[i], i)}</tbody></table>`;
+    } else {
+      box.innerHTML = `<div class="comp-note">✓ <b>${months[i]}</b> está dentro de la meta — no requirió correcciones, por lo que no hay comparación que mostrar.</div>`;
+    }
+  }
 }
 monthSelect.addEventListener('change', e => renderMonth(e.target.value));
 
@@ -680,7 +752,7 @@ function computeIRR(flows) {
 // Sintetiza flujos de caja (CAPEX + anualidad creciente) que reproducen el VAN y la TIR corroborados.
 // La TIR fija la magnitud del flujo base; se busca el horizonte (vida útil) que mejor reproduce el VAN.
 function synthFlows(capex, tir, vanTarget) {
-  const g = dashboardData.finanzas.growth, disc = dashboardData.finanzas.discount;
+  const g = dashboardData.finanzas.growth, disc = dashboardData.finanzas.discountBase;
   let best = null;
   for (let N = 8; N <= 40; N++) {
     let S1 = 0;
@@ -695,18 +767,40 @@ function synthFlows(capex, tir, vanTarget) {
   return best.flows;
 }
 
+// Lee los controles dinámicos (tarifa y tasa de descuento)
+function getFinInputs() {
+  const fin = dashboardData.finanzas;
+  let tarifa = parseFloat(document.getElementById('tarifaInput').value);
+  let disc = parseFloat(document.getElementById('discInput').value) / 100;
+  if (!isFinite(tarifa) || tarifa <= 0) tarifa = fin.tarifaBase;
+  if (!isFinite(disc) || disc < 0) disc = fin.discountBase;
+  return { tarifa, disc };
+}
+
 function buildScenario(excludeAux) {
   const fin = dashboardData.finanzas;
   const sc = excludeAux ? fin.noAux : fin.full;
-  const flows = synthFlows(sc.capex, sc.tir, sc.van);
+  const { tarifa, disc } = getFinInputs();
+  const k = tarifa / fin.tarifaBase;          // factor por cambio de tarifa
+  const base = synthFlows(sc.capex, sc.tir, sc.van);
+  // Escala los flujos positivos (ingresos por ahorro) según la tarifa; el CAPEX (año 0) no cambia
+  const flows = base.map((f, t) => t === 0 ? f : f * k);
   let acc = 0; const cumulative = [];
   flows.forEach(f => { acc += f; cumulative.push(acc); });
-  return { capex: sc.capex, opex: sc.opex, van: sc.van, tir: sc.tir, payback: sc.payback, flows, cumulative, excludeAux };
+  const atBase = Math.abs(k - 1) < 1e-9;
+  const atBaseDisc = Math.abs(disc - fin.discountBase) < 1e-9;
+  const van = (atBase && atBaseDisc) ? sc.van : computeNPV(disc, flows);
+  const tir = atBase ? sc.tir : computeIRR(flows);
+  let payback = sc.payback;
+  if (!atBase) { const idx = cumulative.findIndex((v, t) => t > 0 && v >= 0); payback = idx >= 0 ? idx : null; }
+  const ahorro = sc.ahorroKwh * tarifa;
+  return { capex: sc.capex, opex: sc.opex, van, tir, payback, ahorro, tarifa, disc, flows, cumulative, excludeAux };
 }
 
 function renderFinancial(excludeAux) {
   const s = buildScenario(excludeAux);
-  const tasaPct = fDec(dashboardData.finanzas.discount * 100, 1).replace(',0', '');
+  const tasaPct = fDec(s.disc * 100, 1).replace(',0', '');
+  document.getElementById('ahorroAnual').textContent = fCLP(s.ahorro);
   document.getElementById('finKpis').innerHTML = `
     <div class="kpi green"><div class="label">VAN (${tasaPct}%)</div><div class="value">${fCLP(s.van)}</div><div class="unit">Valor Actual Neto</div></div>
     <div class="kpi blue"><div class="label">TIR</div><div class="value">${s.tir !== null ? fDec(s.tir * 100, 2) + '%' : 'N/A'}</div><div class="unit">Tasa Interna de Retorno</div></div>
@@ -720,7 +814,15 @@ function renderFinancial(excludeAux) {
   tag.classList.toggle('alt', excludeAux);
 }
 
-document.getElementById('auxSwitch').addEventListener('change', e => renderFinancial(e.target.checked));
+function rerenderFinancial() { renderFinancial(document.getElementById('auxSwitch').checked); }
+document.getElementById('auxSwitch').addEventListener('change', rerenderFinancial);
+document.getElementById('tarifaInput').addEventListener('input', rerenderFinancial);
+document.getElementById('discInput').addEventListener('input', rerenderFinancial);
+document.getElementById('resetFin').addEventListener('click', () => {
+  document.getElementById('tarifaInput').value = dashboardData.finanzas.tarifaBase;
+  document.getElementById('discInput').value = (dashboardData.finanzas.discountBase * 100);
+  rerenderFinancial();
+});
 
 /* =================================================================
    CHART.JS — configuración común
