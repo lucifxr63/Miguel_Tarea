@@ -232,6 +232,7 @@
     <button data-tab="conclusiones">Conclusiones y Correcciones</button>
     <button data-tab="brechas">Brechas y Medidas</button>
     <button data-tab="dinamica">Tabla Dinámica</button>
+    <button data-tab="proyeccion">Proyección 10 años</button>
     <button data-tab="financiera">Evaluación Financiera</button>
   </nav>
 
@@ -342,6 +343,41 @@
       </div>
       <div class="mini-grid" id="miniGrid"></div>
       <div class="chart-box short" style="margin-top:22px"><canvas id="chartMonth"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ============ PROYECCIÓN 10 AÑOS ============ -->
+  <section class="panel" id="proyeccion">
+    <h2 class="section-title">Proyección de Consumo a 10 años</h2>
+    <div class="switch-row">
+      <label for="growthSelect" style="font-weight:600">Crecimiento anual estimado:</label>
+      <select id="growthSelect" style="max-width:140px">
+        <option value="0.05">5% anual</option>
+        <option value="0.10" selected>10% anual</option>
+        <option value="0.15">15% anual</option>
+      </select>
+      <span class="s-text" style="font-size:0.82rem;color:var(--text-dim)">Proyección referencial (compuesta) del consumo eléctrico bajo el Caso Base y la Propuesta de Mejora.</span>
+    </div>
+
+    <div class="kpi-grid" id="projKpis"></div>
+
+    <div class="card">
+      <h3 class="block-title">Caso Base vs. Propuesta de Mejora (kWh/año)</h3>
+      <div class="chart-box"><canvas id="chartProyeccion"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3 class="block-title">Detalle anual proyectado</h3>
+      <div class="table-scroll">
+        <table id="tblProyeccion">
+          <thead><tr>
+            <th>Año</th><th>Caso Base (kWh)</th><th>Propuesta (kWh)</th>
+            <th>Ahorro (kWh)</th><th>Ahorro estimado (CLP)</th>
+          </tr></thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -576,6 +612,52 @@ function renderMonth(val) {
 monthSelect.addEventListener('change', e => renderMonth(e.target.value));
 
 /* =================================================================
+   PROYECCIÓN 10 AÑOS — crecimiento compuesto Caso Base vs Propuesta
+================================================================= */
+const PROJ_YEARS = 10;
+function renderProjection(growth) {
+  const c = themeColors();
+  const baseY0 = dashboardData.meta.consumoBase;
+  const propY0 = dashboardData.meta.consumoPropuesto;
+  const labels = [], base = [], prop = [], rows = [];
+  let sumAhorroKwh = 0, sumAhorroClp = 0;
+  for (let y = 0; y <= PROJ_YEARS; y++) {
+    const f = Math.pow(1 + growth, y);
+    const b = baseY0 * f, p = propY0 * f;
+    const ahorro = b - p;
+    sumAhorroKwh += ahorro; sumAhorroClp += ahorro * tarifaPromedio;
+    labels.push('Año ' + y);
+    base.push(b); prop.push(p);
+    rows.push(`<tr>
+      <td class="month">Año ${y}</td>
+      <td>${fNum(b)}</td>
+      <td>${fNum(p)}</td>
+      <td>${fNum(ahorro)}</td>
+      <td>${fCLP(ahorro * tarifaPromedio)}</td>
+    </tr>`);
+  }
+  // KPIs
+  const baseFinal = base[PROJ_YEARS], propFinal = prop[PROJ_YEARS];
+  document.getElementById('projKpis').innerHTML = `
+    <div class="kpi red"><div class="label">Consumo Base · Año 10</div><div class="value">${fNum(baseFinal)}</div><div class="unit">kWh / año</div></div>
+    <div class="kpi green"><div class="label">Consumo Propuesta · Año 10</div><div class="value">${fNum(propFinal)}</div><div class="unit">kWh / año</div></div>
+    <div class="kpi amber"><div class="label">Ahorro Acumulado 10 años</div><div class="value">${fNum(sumAhorroKwh)}</div><div class="unit">kWh evitados</div></div>
+    <div class="kpi blue"><div class="label">Ahorro Económico Acumulado</div><div class="value">${fCLP(sumAhorroClp)}</div><div class="unit">CLP (tarifa actual)</div></div>`;
+  // Tabla
+  document.querySelector('#tblProyeccion tbody').innerHTML = rows.join('');
+  document.querySelector('#tblProyeccion tfoot').innerHTML = `
+    <tr><td>Acumulado</td><td>${fNum(base.reduce((a,b)=>a+b,0))}</td><td>${fNum(prop.reduce((a,b)=>a+b,0))}</td><td>${fNum(sumAhorroKwh)}</td><td>${fCLP(sumAhorroClp)}</td></tr>`;
+  // Gráfico
+  chartProyeccion.data.labels = labels;
+  chartProyeccion.data.datasets = [
+    { label: 'Caso Base', data: base, borderColor: c.red, backgroundColor: 'rgba(248,113,113,0.10)', fill: true, tension: 0.3, pointRadius: 3, borderWidth: 2.5 },
+    { label: 'Propuesta de Mejora', data: prop, borderColor: c.green, backgroundColor: 'rgba(52,211,153,0.10)', fill: true, tension: 0.3, pointRadius: 3, borderWidth: 2.5 },
+  ];
+  chartProyeccion.update();
+}
+document.getElementById('growthSelect').addEventListener('change', e => renderProjection(+e.target.value));
+
+/* =================================================================
    6. EVALUACIÓN FINANCIERA — VAN / TIR / Payback + simulación
 ================================================================= */
 function computeNPV(rate, flows) {
@@ -654,7 +736,7 @@ function gridOpts() {
   };
 }
 
-let chartProdCons, chartBaseProp, chartMonth, chartCash, chartIntensidad, chartBrechaDist, chartSensibilidad;
+let chartProdCons, chartBaseProp, chartMonth, chartCash, chartIntensidad, chartBrechaDist, chartSensibilidad, chartProyeccion;
 
 function initCharts() {
   const c = themeColors();
@@ -752,7 +834,22 @@ function initCharts() {
     }
   });
 
+  chartProyeccion = new Chart(document.getElementById('chartProyeccion'), {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: {
+      ...gridOpts(),
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: c.text } }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + fNum(ctx.parsed.y) + ' kWh' } } },
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text, callback: v => (v / 1e6).toFixed(1) + 'M' }, grid: { color: c.grid }, beginAtZero: false },
+      }
+    }
+  });
+
   renderMonth('all');
+  renderProjection(+document.getElementById('growthSelect').value);
   renderFinancial(false);
 }
 
@@ -807,7 +904,7 @@ function updateSensitivityChart(s, excludeAux) {
 }
 
 function refreshChartsTheme() {
-  [chartProdCons, chartBaseProp, chartMonth, chartCash, chartIntensidad, chartBrechaDist, chartSensibilidad].forEach(ch => ch && ch.destroy());
+  [chartProdCons, chartBaseProp, chartMonth, chartCash, chartIntensidad, chartBrechaDist, chartSensibilidad, chartProyeccion].forEach(ch => ch && ch.destroy());
   initCharts();
 }
 
