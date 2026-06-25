@@ -389,7 +389,6 @@
             <th>Ahorro (kWh)</th><th>Ahorro estimado (CLP)</th>
           </tr></thead>
           <tbody></tbody>
-          <tfoot></tfoot>
         </table>
       </div>
     </div>
@@ -721,12 +720,9 @@ function renderProjection(growth) {
   document.getElementById('projKpis').innerHTML = `
     <div class="kpi red"><div class="label">Consumo Base · Año 10</div><div class="value">${fNum(baseFinal)}</div><div class="unit">kWh / año</div></div>
     <div class="kpi green"><div class="label">Consumo Propuesta · Año 10</div><div class="value">${fNum(propFinal)}</div><div class="unit">kWh / año</div></div>
-    <div class="kpi amber"><div class="label">Ahorro Acumulado 10 años</div><div class="value">${fNum(sumAhorroKwh)}</div><div class="unit">kWh evitados</div></div>
-    <div class="kpi blue"><div class="label">Ahorro Económico Acumulado</div><div class="value">${fCLP(sumAhorroClp)}</div><div class="unit">CLP (tarifa actual)</div></div>`;
+    <div class="kpi amber"><div class="label">Ahorro Acumulado 10 años</div><div class="value">${fNum(sumAhorroKwh)}</div><div class="unit">kWh evitados</div></div>`;
   // Tabla
   document.querySelector('#tblProyeccion tbody').innerHTML = rows.join('');
-  document.querySelector('#tblProyeccion tfoot').innerHTML = `
-    <tr><td>Acumulado</td><td>${fNum(base.reduce((a,b)=>a+b,0))}</td><td>${fNum(prop.reduce((a,b)=>a+b,0))}</td><td>${fNum(sumAhorroKwh)}</td><td>${fCLP(sumAhorroClp)}</td></tr>`;
   // Gráfico
   chartProyeccion.data.labels = labels;
   chartProyeccion.data.datasets = [
