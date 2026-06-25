@@ -494,9 +494,9 @@ const dashboardData = {
     // Sin sistema auxiliar (réplica de la hoja "sin auxiliar", tarifa 140 / tasa 2%):
     //   inversión = inyección + iluminación + gestión = 29.566.799
     //   amortización sobre el capex completo (48.039.582 = inversión + auxiliar 18.472.783)
-    //   ingresos año 1 = 13.981.120  ⇒  ahorro = 13.981.120 / 140 kWh
-    //   ⇒ VAN = 239.438.921 y TIR = 29,87% a tarifa 140 / tasa 2%
-    noAux: { capex: 29566799, ahorroKwh: 13981120 / 140, amortCapex: 48039582 },
+    //   ahorro = 100.000 − 7.992 (auxiliar) = 92.008 kWh
+    //   ⇒ VAN = 197.470.552 y TIR = 25,88% a tarifa 140 / tasa 2%
+    noAux: { capex: 29566799, ahorroKwh: 92008, amortCapex: 48039582 },
   }
 };
 
